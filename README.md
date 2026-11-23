@@ -13,61 +13,113 @@ Official implementation and empirical audit suite for the paper:
 
 ## 📌 Overview
 
-Fourier Neural Operators (FNOs) learn resolution-invariant solution mappings of partial differential equations (PDEs) in Fourier space. However, standard spectral layers lack an explicit parameterization of the nonlocal, power-law dissipation characteristic of fractional differential operators $(-\Delta)^{\alpha/2}$.
+Fourier Neural Operators (FNOs) learn resolution-invariant solution mappings of partial differential equations (PDEs) in Fourier space. However, standard spectral layers lack an explicit parameterization of the nonlocal, power-law dissipation characteristic of fractional differential operators $`(-\Delta)^{\alpha/2}`$.
 
 This repository provides:
-1. **Mathematical Filter Derivation**: Formal analysis showing that heuristic rational filters $\Psi(k) = [e^{1-\alpha} + \alpha(k/M)^2]^{-1}$ possess a fixed $\mathcal{O}(k^{-2})$ quadratic roll-off regardless of $\alpha$, whereas the true **Fractional Resolvent Filter** $\Psi(k) = [1 + \beta |k/M|^\alpha]^{-1}$ strictly exhibits $\mathcal{O}(k^{-\alpha})$ power-law decay matching the fractional Laplacian.
+1. **Mathematical Filter Derivation**: Formal analysis showing that heuristic rational filters $`\Psi(k) = [e^{1-\alpha} + \alpha(k/M)^2]^{-1}`$ possess a fixed $`\mathcal{O}(k^{-2})`$ quadratic roll-off regardless of $`\alpha`$, whereas the true **Fractional Resolvent Filter** $`\Psi(k) = [1 + \beta |k/M|^\alpha]^{-1}`$ strictly exhibits $`\mathcal{O}(k^{-\alpha})`$ power-law decay matching the fractional Laplacian.
 2. **Comprehensive Operator Benchmark**: Rigorous, controlled evaluation across:
-   - **FNO Variants**: Vanilla FNO ($A_0$), Parameter-Matched FNO ($A_1$), Gaussian Smoothing ($A_2$), Fixed fr-FNO ($A_3$), Adaptive fr-FNO ($A_5$), True Dissipative fr-FNO ($A_6$), Normalized Dissipative ($A_{6j}$), Resolvent Filter ($A_{10}$), and Spectral Multiplier ($A_{9a}$).
+   - **FNO Variants**: Vanilla FNO ($`A_0`$), Parameter-Matched FNO ($`A_1`$), Gaussian Smoothing ($`A_2`$), Fixed fr-FNO ($`A_3`$), Adaptive fr-FNO ($`A_5`$), True Dissipative fr-FNO ($`A_6`$), Normalized Dissipative ($`A_{6j}`$), Resolvent Filter ($`A_{10}`$), and Spectral Multiplier ($`A_{9a}`$).
    - **Alternative Operator Baselines**: Parameter-matched **1D DeepONet** (branch-trunk architecture) and **1D U-Net** (3-level CNN), strictly tuned under identical budgets (~287k parameters).
-3. **Statistical Rigor & Paired CIs**: Multi-seed evaluations ($n=5$) reporting 95% Student-$t$ paired-difference confidence intervals $[\bar{\Delta} \pm t_{.975}\frac{s}{\sqrt{n}}]$ vs. $A_0$, confirming statistically significant superiority on fractional phase-field systems ($p < 0.05$) and honest parity on advective shock systems.
-4. **Multi-Metric Suite (Addressing Zero-Crossings)**: Evaluation across Relative $L^2$, Mean Squared Error (MSE), Symmetric MAPE (sMAPE), $\epsilon$-regularized MAPE ($\text{MAPE}_\epsilon$ with $\epsilon = 0.01 \cdot \text{std}(u)$), and clamped raw MAPE, explaining the divergence of raw percentage error near nodal zero-crossings.
-5. **Long-Horizon Scaling & High-Order Scope**: 300-epoch extended convergence on Allen-Cahn and evaluation on high fractional orders ($\alpha \in \{1.6, 1.9\}$).
+3. **Statistical Rigor & Paired CIs**: Multi-seed evaluations ($`n=5`$) reporting 95% Student-$`t`$ paired-difference confidence intervals $`[\bar{\Delta} \pm t_{.975}\frac{s}{\sqrt{n}}]`$ vs. $`A_0`$, confirming statistically significant superiority on fractional phase-field systems ($`p < 0.05`$) and honest parity on advective shock systems.
+4. **Multi-Metric Suite (Addressing Zero-Crossings)**: Evaluation across Relative $`L^2`$, Mean Squared Error (MSE), Symmetric MAPE (sMAPE), $`\epsilon`$-regularized MAPE ($`\text{MAPE}_\epsilon`$ with $`\epsilon = 0.01 \cdot \text{std}(u)`$), and clamped raw MAPE, explaining the divergence of raw percentage error near nodal zero-crossings.
+5. **Long-Horizon Scaling & High-Order Scope**: 300-epoch extended convergence on Allen-Cahn and evaluation on high fractional orders ($`\alpha \in \{1.6, 1.9\}`$).
+
+---
+
+## 🏗️ Project Architecture
+
+The diagram summarizes the experiment architecture described in this README: benchmark datasets and a selected model feed a controlled training run, followed by evaluation, statistical analysis, and publication outputs.
+
+```mermaid
+flowchart TD
+    subgraph inputs["Benchmark inputs"]
+        data["data/: S1-S4 PDE datasets"]
+        config["System, fractional order, seed and training budget"]
+    end
+
+    subgraph models["Model alternatives"]
+        fno["Vanilla and parameter-matched FNO"]
+        filters["Smoothing, fractional filters and spectral multipliers"]
+        baselines["1D DeepONet and 1D U-Net"]
+    end
+
+    suite["audit_suite.py and experiment runners"]
+    train["fr_fno_master.py: model training"]
+    evaluate["Prediction errors and compute measurements"]
+    records["results/: experiment records and CSV summaries"]
+    analysis["Paired confidence intervals and statistical audits"]
+    figures["figures/: convergence and prediction plots"]
+    tables["tables/: benchmark and metric summaries"]
+    paper["main.tex and main.pdf"]
+
+    data --> train
+    config --> train
+    fno -->|selected model| train
+    filters -->|selected model| train
+    baselines -->|selected model| train
+    suite -->|orchestrates runs| train
+    train --> evaluate
+    evaluate --> records
+    records --> analysis
+    records --> figures
+    analysis --> tables
+    figures --> paper
+    tables --> paper
+```
+
+### Data and Experiment Flow
+
+1. **Select the benchmark:** Choose a PDE system and fractional order from the datasets in `data/`, along with the training size, epoch budget, and seed.
+2. **Select the operator:** Run an FNO variant, fractional-filter variant, DeepONet, or U-Net. These are alternative models evaluated under the benchmark protocol.
+3. **Train and evaluate:** Use `fr_fno_master.py` for individual runs or the audit and exploration runners for experiment suites. Evaluate prediction quality using relative L2 error, MSE, sMAPE, regularized MAPE, and clamped MAPE; benchmark compute cost separately.
+4. **Record and audit:** Store experiment records and summaries in `results/`. Compare runs across seeds using paired confidence intervals and the statistical checks described below.
+5. **Produce research outputs:** Generate plots in `figures/` and LaTeX summaries in `tables/` for the manuscript in `main.tex`.
+
+The diagram shows the documented experiment workflow; implementation details require reviewing the source files.
 
 ---
 
 ## 🔬 Key Empirical Findings
 
-- **Operator Superiority**: FNO outperforms DeepONet by $11\times$ to $42\times$ ($p < 10^{-6}$) and U-Net by $3\times$ to $4\times$ ($p < 10^{-3}$) under identical ~287k parameter budgets, demonstrating that non-local fractional Laplacians require global spectral receptive fields.
-- **Physical Dissipative Advantage**: On Fractional Allen-Cahn ($\alpha=0.8$), the true dissipative filter ($A_6$) reduces relative $L^2$ error by **45.2%** over vanilla FNO ($0.0070$ vs. $0.0128$, paired difference 95% CI $[-0.0106, -0.0010]$, $p = 0.0292^*$).
-- **Advective Wave Parity**: On Fractional Burgers ($\alpha=1.2$), where nonlinear hyperbolic wave steepening counterbalances dissipation, vanilla FNO ($0.0389$) achieves parity with the resolvent filter ($0.0392$) and dissipative filter ($0.0399$), while rigid heuristic filters ($A_3, A_5$) over-smooth shock fronts.
-- **Minimal Compute Overhead**: Adding fractional filters incurs under ~10% compute overhead ($0.117 \to 0.125$ s/epoch), well within hardware timing noise.
-- **Singularity of Raw MAPE**: Across test sets, $0.02\% - 0.22\%$ of points have $|u| < 10^{-3}$ with minima reaching $2\times 10^{-6}$. Dividing by near-zero values explodes unregularized raw MAPE to $>100\%$, while $\text{sMAPE}$ and $\text{MAPE}_\epsilon$ provide stable, meaningful metrics.
+- **Operator Superiority**: FNO outperforms DeepONet by $`11\times`$ to $`42\times`$ ($`p < 10^{-6}`$) and U-Net by $`3\times`$ to $`4\times`$ ($`p < 10^{-3}`$) under identical ~287k parameter budgets, demonstrating that non-local fractional Laplacians require global spectral receptive fields.
+- **Physical Dissipative Advantage**: On Fractional Allen-Cahn ($`\alpha=0.8`$), the true dissipative filter ($`A_6`$) reduces relative $`L^2`$ error by **45.2%** over vanilla FNO ($`0.0070`$ vs. $`0.0128`$, paired difference 95% CI $`[-0.0106, -0.0010]`$, $`p = 0.0292^*`$).
+- **Advective Wave Parity**: On Fractional Burgers ($`\alpha=1.2`$), where nonlinear hyperbolic wave steepening counterbalances dissipation, vanilla FNO ($`0.0389`$) achieves parity with the resolvent filter ($`0.0392`$) and dissipative filter ($`0.0399`$), while rigid heuristic filters ($`A_3, A_5`$) over-smooth shock fronts.
+- **Minimal Compute Overhead**: Adding fractional filters incurs under ~10% compute overhead ($`0.117 \to 0.125`$ s/epoch), well within hardware timing noise.
+- **Singularity of Raw MAPE**: Across test sets, $`0.02\% - 0.22\%`$ of points have $`|u| < 10^{-3}`$ with minima reaching $`2\times 10^{-6}`$. Dividing by near-zero values explodes unregularized raw MAPE to $`>100\%`$, while $`\text{sMAPE}`$ and $`\text{MAPE}_\epsilon`$ provide stable, meaningful metrics.
 
 ---
 
 ## 📊 Benchmark Results
 
-### 1. Primary Test Relative $L^2$ Error ($N_{\text{tr}}=500$, 100 Epochs, Mean $\pm$ Std over 5 Seeds)
-*All models tuned on identical AdamW grid ($lr \in \{3\times 10^{-4}, 1\times 10^{-3}, 3\times 10^{-3}\}$, $wd \in \{0, 10^{-4}\}$, batch size 125).*
+### 1. Primary Test Relative $`L^2`$ Error ($`N_{\text{tr}}=500`$, 100 Epochs, Mean $`\pm`$ Std over 5 Seeds)
+*All models tuned on identical AdamW grid ($`lr \in \{3\times 10^{-4}, 1\times 10^{-3}, 3\times 10^{-3}\}`$, $`wd \in \{0, 10^{-4}\}`$, batch size 125).*
 
-| Model Architecture | Params | S1 (Burgers) $\alpha=1.2$ | S2 (Allen-Cahn) $\alpha=0.8$ | S2 (Allen-Cahn) $\alpha=1.2$ |
+| Model Architecture | Params | S1 (Burgers) $`\alpha=1.2`$ | S2 (Allen-Cahn) $`\alpha=0.8`$ | S2 (Allen-Cahn) $`\alpha=1.2`$ |
 | :--- | :---: | :---: | :---: | :---: |
-| **$A_0$ (Vanilla FNO)** | 287,361 | $0.0389 \pm 0.0063$ | $0.0128 \pm 0.0038$ | $0.0151 \pm 0.0012$ |
-| **$A_3$ (Fixed fr-FNO)** | 287,361 | $0.0575 \pm 0.0075$ | $\mathbf{0.0078 \pm 0.0005}$ | $0.0161 \pm 0.0005$ |
-| **$A_5$ (Adaptive fr-FNO)** | 287,617 | $0.0554 \pm 0.0100$ | $0.0079 \pm 0.0008$ | $\mathbf{0.0148 \pm 0.0004}$ |
-| **$A_6$ (True Dissipative)** | 287,873 | $0.0399 \pm 0.0048$ | $\mathbf{0.0070 \pm 0.0011}$ | $0.0164 \pm 0.0007$ |
-| **$A_{6j}$ (Norm. Dissipative)** | 287,873 | $0.0392 \pm 0.0060$ | $0.0126 \pm 0.0042$ | $0.0151 \pm 0.0016$ |
-| **$A_{10}$ (Resolvent Filter)** | 287,873 | $0.0392 \pm 0.0060$ | $0.0126 \pm 0.0042$ | $0.0151 \pm 0.0016$ |
-| **$A_{9a}$ (Init Multiplier)** | 287,361 | $\mathbf{0.0382 \pm 0.0060}$ | $0.0127 \pm 0.0034$ | $0.0151 \pm 0.0010$ |
-| \midrule
-| **U-Net 1D Baseline** | 287,360 | $0.1674 \pm 0.0043$ | $0.0447 \pm 0.0054$ | $0.0443 \pm 0.0068$ |
-| **DeepONet 1D Baseline** | 287,362 | $0.4518 \pm 0.0090$ | $0.5375 \pm 0.0121$ | $0.5397 \pm 0.0214$ |
+| **$`A_0`$ (Vanilla FNO)** | 287,361 | $`0.0389 \pm 0.0063`$ | $`0.0128 \pm 0.0038`$ | $`0.0151 \pm 0.0012`$ |
+| **$`A_3`$ (Fixed fr-FNO)** | 287,361 | $`0.0575 \pm 0.0075`$ | $`\mathbf{0.0078 \pm 0.0005}`$ | $`0.0161 \pm 0.0005`$ |
+| **$`A_5`$ (Adaptive fr-FNO)** | 287,617 | $`0.0554 \pm 0.0100`$ | $`0.0079 \pm 0.0008`$ | $`\mathbf{0.0148 \pm 0.0004}`$ |
+| **$`A_6`$ (True Dissipative)** | 287,873 | $`0.0399 \pm 0.0048`$ | $`\mathbf{0.0070 \pm 0.0011}`$ | $`0.0164 \pm 0.0007`$ |
+| **$`A_{6j}`$ (Norm. Dissipative)** | 287,873 | $`0.0392 \pm 0.0060`$ | $`0.0126 \pm 0.0042`$ | $`0.0151 \pm 0.0016`$ |
+| **$`A_{10}`$ (Resolvent Filter)** | 287,873 | $`0.0392 \pm 0.0060`$ | $`0.0126 \pm 0.0042`$ | $`0.0151 \pm 0.0016`$ |
+| **$`A_{9a}`$ (Init Multiplier)** | 287,361 | $`\mathbf{0.0382 \pm 0.0060}`$ | $`0.0127 \pm 0.0034`$ | $`0.0151 \pm 0.0010`$ |
+| **U-Net 1D Baseline** | 287,360 | $`0.1674 \pm 0.0043`$ | $`0.0447 \pm 0.0054`$ | $`0.0443 \pm 0.0068`$ |
+| **DeepONet 1D Baseline** | 287,362 | $`0.4518 \pm 0.0090`$ | $`0.5375 \pm 0.0121`$ | $`0.5397 \pm 0.0214`$ |
 
-### 2. Paired-Difference Confidence Intervals ($A - A_0$)
-- **S2 Allen-Cahn ($\alpha=0.8$)**:
-  - $A_6 - A_0$: mean diff $\mathbf{-0.00577}$, 95% CI $\mathbf{[-0.01059, -0.00095]}$ $\implies$ **Statistically significantly better than $A_0$ ($p < 0.05$)**.
-  - $A_3 - A_0$: mean diff $\mathbf{-0.00494}$, 95% CI $\mathbf{[-0.00952, -0.00035]}$ $\implies$ **Statistically significantly better than $A_0$ ($p < 0.05$)**.
-- **S1 Burgers ($\alpha=1.2$)**:
-  - $A_{10}, A_{6j}, A_6, A_{9a}$: CIs all span 0 ($\bar{\Delta} \in [-0.0007, +0.0010]$) $\implies$ **Exact parity with $A_0$**.
-  - DeepONet ($+0.413$) and U-Net ($+0.129$): CIs strictly positive $\implies$ **Significantly worse than $A_0$**.
+### 2. Paired-Difference Confidence Intervals ($`A - A_0`$)
+- **S2 Allen-Cahn ($`\alpha=0.8`$)**:
+  - $`A_6 - A_0`$: mean diff $`\mathbf{-0.00577}`$, 95% CI $`\mathbf{[-0.01059, -0.00095]}`$ $`\implies`$ **Statistically significantly better than $`A_0`$ ($`p < 0.05`$)**.
+  - $`A_3 - A_0`$: mean diff $`\mathbf{-0.00494}`$, 95% CI $`\mathbf{[-0.00952, -0.00035]}`$ $`\implies`$ **Statistically significantly better than $`A_0`$ ($`p < 0.05`$)**.
+- **S1 Burgers ($`\alpha=1.2`$)**:
+  - $`A_{10}, A_{6j}, A_6, A_{9a}`$: CIs all span 0 ($`\bar{\Delta} \in [-0.0007, +0.0010]`$) $`\implies`$ **Exact parity with $`A_0`$**.
+  - DeepONet ($`+0.413`$) and U-Net ($`+0.129`$): CIs strictly positive $`\implies`$ **Significantly worse than $`A_0`$**.
 
-### 3. Extended 300-Epoch Scaling (S2 Allen-Cahn $\alpha=1.2$)
-- $A_{10}$ (Resolvent): $\mathbf{0.01066 \pm 0.00009}$ (CI $\pm 0.00022$)
-- $A_0$ (Vanilla FNO): $\mathbf{0.01068 \pm 0.00030}$ (CI $\pm 0.00076$)
-- $A_6$ (True Dissipative): $0.01152 \pm 0.00006$
-- U-Net 1D: $0.01997 \pm 0.00088$
-- DeepONet 1D: $0.43203 \pm 0.00550$
+### 3. Extended 300-Epoch Scaling (S2 Allen-Cahn $`\alpha=1.2`$)
+- $`A_{10}`$ (Resolvent): $`\mathbf{0.01066 \pm 0.00009}`$ (CI $`\pm 0.00022`$)
+- $`A_0`$ (Vanilla FNO): $`\mathbf{0.01068 \pm 0.00030}`$ (CI $`\pm 0.00076`$)
+- $`A_6`$ (True Dissipative): $`0.01152 \pm 0.00006`$
+- U-Net 1D: $`0.01997 \pm 0.00088`$
+- DeepONet 1D: $`0.43203 \pm 0.00550`$
 
 ---
 
@@ -132,24 +184,24 @@ This repository provides:
 
 ## 🔬 Final Reviewer Exploration (Priorities 1–4)
 
-All exploratory runs use the strict frozen protocol (`batch_size=125` for $N_{\text{tr}} \ge 500$, `AdamW`, $\eta_{\min}=10^{-5}$, MPS device), logged with `"stage": "final_p1" / "final_p3" / "final_p4"`.
+All exploratory runs use the strict frozen protocol (`batch_size=125` for $`N_{\text{tr}} \ge 500`$, `AdamW`, $`\eta_{\min}=10^{-5}`$, MPS device), logged with `"stage": "final_p1" / "final_p3" / "final_p4"`.
 
 ### Priority 1: 300-Epoch Scaling (30 Runs)
-- **Cell S2 Allen-Cahn ($\alpha=0.8$):** $A_6$ achieves $0.0035 \pm 0.0002$ vs. $A_0 = 0.0040 \pm 0.0003$.
-- **Cell S1 Burgers ($\alpha=1.2$):** $A_6$ achieves $0.0185 \pm 0.0007$ vs. $A_0 = 0.0269 \pm 0.0031$ ($p = 0.035^*$).
+- **Cell S2 Allen-Cahn ($`\alpha=0.8`$):** $`A_6`$ achieves $`0.0035 \pm 0.0002`$ vs. $`A_0 = 0.0040 \pm 0.0003`$.
+- **Cell S1 Burgers ($`\alpha=1.2`$):** $`A_6`$ achieves $`0.0185 \pm 0.0007`$ vs. $`A_0 = 0.0269 \pm 0.0031`$ ($`p = 0.035^*`$).
 
 ### Priority 2: Statistical Rigor & Metric Clarification
-- **Multiple Comparisons:** DeepONet and U-Net across all cells remain strictly inferior under conservative Holm-Bonferroni correction ($p_{\text{adj}} \le 1.9\times 10^{-3}$).
-- **Exact Wilcoxon Signed-Rank:** On S2 $\alpha=0.8$ ($n=5$), filter arms ($A_3, A_5, A_6$) beat $A_0$ on $100\%$ of seeds ($W=0.0$). The exact two-sided $p = 0.0625$ represents the theoretical floor for $n=5$.
-- **Sample Std Convention:** All core tables regenerated with unbiased sample standard deviation ($ddof=1$, [`tables/tab_core_ddof1.tex`](tables/tab_core_ddof1.tex)).
-- **Filter Order Parameter Movement:** $A_5$ consistently converges to a numerical filter scale ($\sim 0.84$ on Burgers, $\sim 1.01$ on AC), while $A_{6j}$ and $A_{10}$ remain near initialization ($\beta \approx 0.3$).
+- **Multiple Comparisons:** DeepONet and U-Net across all cells remain strictly inferior under conservative Holm-Bonferroni correction ($`p_{\text{adj}} \le 1.9\times 10^{-3}`$).
+- **Exact Wilcoxon Signed-Rank:** On S2 $`\alpha=0.8`$ ($`n=5`$), filter arms ($`A_3, A_5, A_6`$) beat $`A_0`$ on $`100\%`$ of seeds ($`W=0.0`$). The exact two-sided $`p = 0.0625`$ represents the theoretical floor for $`n=5`$.
+- **Sample Std Convention:** All core tables regenerated with unbiased sample standard deviation ($`ddof=1`$, [`tables/tab_core_ddof1.tex`](tables/tab_core_ddof1.tex)).
+- **Filter Order Parameter Movement:** $`A_5`$ consistently converges to a numerical filter scale ($`\sim 0.84`$ on Burgers, $`\sim 1.01`$ on AC), while $`A_{6j}`$ and $`A_{10}`$ remain near initialization ($`\beta \approx 0.3`$).
 
 ### Priority 3: DeepONet Inductive Bias & Sanity Audit
-- **Underfitting Diagnosis:** Tuned baseline DeepONet on S2 $\alpha=0.8$ has train relative $L^2 = 0.5700 > 0.20$ and test relative $L^2 = 0.5606$, proving inherent underfitting rather than overfitting.
-- **Architectural Exploration:** Adding trunk Fourier features ($k=1..16$) reduces test error to $0.2486 \pm 0.0026$ (Burgers) and $0.2546 \pm 0.0039$ (AC). However, no variant reaches $<0.20$, confirming that global spectral convolution is indispensable.
+- **Underfitting Diagnosis:** Tuned baseline DeepONet on S2 $`\alpha=0.8`$ has train relative $`L^2 = 0.5700 > 0.20`$ and test relative $`L^2 = 0.5606`$, proving inherent underfitting rather than overfitting.
+- **Architectural Exploration:** Adding trunk Fourier features ($`k=1..16`$) reduces test error to $`0.2486 \pm 0.0026`$ (Burgers) and $`0.2546 \pm 0.0039`$ (AC). However, no variant reaches $`<0.20`$, confirming that global spectral convolution is indispensable.
 
-### Priority 4: Large-Data Benchmark ($N_{\text{tr}}=900$, 40 Runs)
-- Evaluating the entire training partition ($N_{\text{tr}}=900$, 5 seeds) maintains the hierarchy: $A_6$ achieves $0.0047 \pm 0.0008$ on S2 AC $\alpha=0.8$ and $0.0220 \pm 0.0005$ on S1 Burgers $\alpha=1.2$, while $A_0$ achieves $0.0055 \pm 0.0013$ and $0.0233 \pm 0.0027$.
+### Priority 4: Large-Data Benchmark ($`N_{\text{tr}}=900`$, 40 Runs)
+- Evaluating the entire training partition ($`N_{\text{tr}}=900`$, 5 seeds) maintains the hierarchy: $`A_6`$ achieves $`0.0047 \pm 0.0008`$ on S2 AC $`\alpha=0.8`$ and $`0.0220 \pm 0.0005`$ on S1 Burgers $`\alpha=1.2`$, while $`A_0`$ achieves $`0.0055 \pm 0.0013`$ and $`0.0233 \pm 0.0027`$.
 
 
 ---
@@ -174,17 +226,17 @@ This generates `figures/fig_curves.pdf`, `figures/fig_qualitative.pdf`, and logs
 
 ### 3. Evaluate Individual Operators with `fr_fno_master.py`
 
-Train Vanilla FNO ($A_0$) on Space-Fractional Burgers ($\alpha=1.2$):
+Train Vanilla FNO ($`A_0`$) on Space-Fractional Burgers ($`\alpha=1.2`$):
 ```bash
 python fr_fno_master.py --system S1_burgers --alpha 1.2 --arm A0 --train_size 500 --epochs 100 --seed 42
 ```
 
-Train True Fractional Dissipative Filter ($A_6$):
+Train True Fractional Dissipative Filter ($`A_6`$):
 ```bash
 python fr_fno_master.py --system S2_allen_cahn --alpha 0.8 --arm A6 --train_size 500 --epochs 100 --seed 42
 ```
 
-Train Resolvent Filter ($A_{10}$):
+Train Resolvent Filter ($`A_{10}`$):
 ```bash
 python fr_fno_master.py --system S2_allen_cahn --alpha 1.2 --arm A10 --train_size 500 --epochs 100 --seed 42
 ```
